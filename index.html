@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BOOKlytics</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { margin:0; font-family: 'Segoe UI', Arial, sans-serif; background:#f4f7fb;}
+    header { background: #222e50; color: #fff; padding: 32px 0 24px 0; text-align:center;}
+    nav { display: flex; justify-content: center; background:#34568B;}
+    .tab { flex:1; padding:16px; cursor:pointer; color:#fff; text-align:center; font-weight:500;}
+    .tab.active { background:#222e50;}
+    .slide { display:none; padding:32px max(5vw,40px);}
+    .slide.active { display:block; animation:fadeIn 0.6s;}
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .sidebar-container { display:flex; gap:32px;}
+    .sidebar { min-width:160px; background:#2c3957; border-radius:10px; padding:16px 4px; display:flex; flex-direction:column; gap:6px;}
+    .sidebar-tab { padding:10px 16px; color:#fff; background:none; border:none; text-align:left; cursor:pointer; border-radius:6px;}
+    .sidebar-tab.active, .sidebar-tab:hover { background:#34568B; }
+    .sidebar-form { flex:1; }
+    .form-group { margin-bottom:16px;}
+    label { display:block; margin-bottom:6px; font-weight:600;}
+    input, select { width:100%; padding:8px; border-radius:6px; border:1px solid #d3d7e2;}
+    button, .action-btn { background:#34568B; color:#fff; border:none; padding:10px 24px; border-radius:6px; font-weight:600; cursor:pointer;}
+    button:hover, .action-btn:hover { background:#222e50;}
+    .action-btn { padding:4px 10px; font-size:0.9em; margin:0 2px;}
+    .dashboard { display:flex; flex-wrap:wrap; gap:32px;}
+    .card { background:#fff; border-radius:12px; box-shadow:0 3px 12px #d3d7e2; flex:1; min-width:300px; padding:24px; margin-bottom:24px;}
+    .card h2 { margin-top:0; font-size:1.2em; color:#34568B;}
+    .summary-list { list-style:none; padding:0; margin:0;}
+    .summary-list li { margin:8px 0; font-size:1.07em;}
+    .charts { display:flex; gap:32px; margin-top:24px; flex-wrap:wrap;}
+    canvas { background:#fff; border-radius:8px; box-shadow:0 0 4px #ddd;}
+    table { width:100%; border-collapse:collapse; background:#fff; margin-top:16px; box-shadow:0 2px 8px #d3d7e2;}
+    th, td { border:1px solid #e0e3ea; padding:8px; text-align:center;}
+    th { background:#34568B; color:#fff;}
+    tr:nth-child(even) { background:#f7f8fa;}
+    .gst-summary-section { margin-top:24px; }
+    .gst-summary-cards { display:flex; flex-wrap:wrap; gap:32px; }
+    .gst-summary-card { background:#fff; border-radius:12px; box-shadow:0 3px 12px #d3d7e2; flex:1; min-width:230px; padding:24px; margin-bottom:24px;}
+    .gst-summary-card h3 { margin-top:0; color:#34568B; }
+    .gst-charts {display:flex; gap:32px; flex-wrap:wrap; margin-top:24px;}
+    .modal {display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.38);}
+    .modal-content {background:#fff; margin:8vh auto; padding:26px 24px 16px 24px; border-radius:12px; max-width:400px; position:relative; box-shadow:0 3px 12px #d3d7e2;}
+    .modal-close {position:absolute; top:12px; right:18px; font-size:1.5em; color:#34568B; background:transparent; border:none; cursor:pointer;}
+    .ledger-container { display:flex; gap:32px;}
+    .ledger-sidebar { min-width:190px; background:#2c3957; border-radius:10px; padding:16px 4px; display:flex; flex-direction:column; gap:6px;}
+    .ledger-tab { padding:10px 18px; color:#fff; background:none; border:none; text-align:left; cursor:pointer; border-radius:6px; font-weight:500;}
+    .ledger-tab.active, .ledger-tab:hover { background:#34568B; }
+    .ledger-content { flex:1; }
+    .ledger-title { font-size:1.25em; color:#34568B; margin-bottom:16px;}
+    .debcred-container { display:flex; gap:32px;}
+    .debcred-sidebar { min-width:210px; background:#2c3957; border-radius:10px; padding:16px 4px; display:flex; flex-direction:column; gap:16px;}
+    .debcred-tab { padding:10px 18px; color:#fff; background:none; border:none; text-align:left; cursor:pointer; border-radius:6px; font-weight:500;}
+    .debcred-tab.active, .debcred-tab:hover { background:#34568B; }
+    .debcred-content { flex:1; }
+    .debcred-card { background:#fff; border-radius:12px; box-shadow:0 3px 12px #d3d7e2; padding:24px; margin-bottom:24px; min-width:260px;}
+    .debcred-table { width:100%; border-collapse:collapse; margin-top:8px;}
+    .debcred-table th, .debcred-table td { border:1px solid #e0e3ea; padding:6px 8px;}
+    .debcred-table th { background:#34568B; color:#fff;}
+    .debcred-table tr:nth-child(even) { background:#f7f8fa;}
+    .party-list {margin-bottom:20px;}
+    .party-row {display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+    .party-row span {font-weight:500;}
+    .party-del-btn {background:#dc3545; color:#fff; border:none; border-radius:4px; padding:2px 10px; font-size:0.8em; cursor:pointer;}
+    .party-type-select {margin-left:8px;}
+    @media(max-width:900px) {
+      .dashboard, .charts, .gst-charts, .sidebar-container, .gst-summary-cards, .ledger-container, .debcred-container { flex-direction:column;}
+      .sidebar, .ledger-sidebar, .debcred-sidebar { flex-direction:row; min-width:auto;}
+      .sidebar-tab, .ledger-tab, .debcred-tab { flex:1;}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BOOKlytics</h1>
+  </header>
+  <nav>
+    <div class="tab active" data-slide="dashboard">Dashboard</div>
+    <div class="tab" data-slide="add">Add Transaction</div>
+    <div class="tab" data-slide="gst">GST Summary</div>
+    <div class="tab" data-slide="ledgers">Ledgers</div>
+    <div class="tab" data-slide="debcred">Debtors & Creditors</div>
+  </nav>
+  <!-- Dashboard Slide -->
+  <section class="slide dashboard-slide active" id="dashboard">
+    <div class="dashboard">
+      <div class="card">
+        <h2>Profit & Loss</h2>
+        <ul class="summary-list">
+          <li>Total Income: <span id="dashTotalIncome">0</span></li>
+          <li>Total Expense: <span id="dashTotalExpense">0</span></li>
+          <li>Net Profit: <span id="dashNetProfit">0</span></li>
+        </ul>
+        <canvas id="plChart" width="280" height="200"></canvas>
+      </div>
+      <div class="card">
+        <h2>Balance Sheet</h2>
+        <ul class="summary-list">
+          <li>Assets: <span id="dashAssets">0</span></li>
+          <li>Liabilities: <span id="dashLiabilities">0</span></li>
+          <li>Equity: <span id="dashEquity">0</span></li>
+        </ul>
+        <canvas id="bsChart" width="280" height="200"></canvas>
+      </div>
+      <div class="card">
+        <h2>Debtors & Creditors Summary</h2>
+        <ul class="summary-list">
+          <li>Total Debtors: <span id="dashboardDebtorSum">₹0.00</span></li>
+          <li>Total Creditors: <span id="dashboardCreditorSum">₹0.00</span></li>
+        </ul>
+        <div>
+          <h2 style="text-align:center;">Debtors & Creditors (Party-wise)</h2>
+          <canvas id="debCredBarChart" width="280" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="charts">
+      <div>
+        <h2 style="text-align:center;">Trends</h2>
+        <canvas id="dashTrendChart" width="280" height="200"></canvas>
+      </div>
+      <div>
+        <h2 style="text-align:center;">Monthly Income & Expense</h2>
+        <canvas id="monthlyLineChart" width="280" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+  <!-- Add Transaction Slide -->
+  <section class="slide add-slide" id="add">
+    <div class="sidebar-container">
+      <aside class="sidebar">
+        <button class="sidebar-tab active" data-form="sales">Sales</button>
+        <button class="sidebar-tab" data-form="purchase">Purchase</button>
+        <button class="sidebar-tab" data-form="debitnote">Debit Note</button>
+        <button class="sidebar-tab" data-form="creditnote">Credit Note</button>
+        <button class="sidebar-tab" data-form="payment">Payment</button>
+        <button class="sidebar-tab" data-form="receipt">Receipt</button>
+        <button class="sidebar-tab" data-form="contra">Contra</button>
+      </aside>
+      <div class="sidebar-form" id="sidebarForms">
+        <!-- Forms will be injected here -->
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-top:40px;">Last 10 Transactions</h3>
+      <table id="addTransTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Party</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>GST Rate</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <!-- Edit Modal -->
+    <div class="modal" id="editModal">
+      <div class="modal-content">
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        <h3>Edit Transaction</h3>
+        <form id="editForm">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" name="date" id="editDate" required>
+          </div>
+          <div class="form-group">
+            <label>Party Name</label>
+            <input type="text" name="party" id="editParty">
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="description" id="editDesc" required>
+          </div>
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" name="amount" id="editAmount" required>
+          </div>
+          <div class="form-group">
+            <label>GST Rate</label>
+            <select name="gstrate" id="editGSTRate">
+              <option value="0">None</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18">18%</option>
+              <option value="28">28%</option>
+            </select>
+          </div>
+          <button type="submit">Save Changes</button>
+        </form>
+      </div>
+    </div>
+  </section>
+  <!-- GST Summary Slide -->
+  <section class="slide gst-slide" id="gst">
+    <h2>GST Summary</h2>
+    <div class="gst-summary-section">
+      <div class="gst-summary-cards">
+        <div class="gst-summary-card">
+          <h3>Total GST Output (Sales + Credit Note)</h3>
+          <div id="gstOutput">₹0.00</div>
+        </div>
+        <div class="gst-summary-card">
+          <h3>Total GST Input (Purchase + Debit Note)</h3>
+          <div id="gstInput">₹0.00</div>
+        </div>
+        <div class="gst-summary-card">
+          <h3>Net GST Payable/Refundable</h3>
+          <div id="gstNetPayable">₹0.00</div>
+        </div>
+      </div>
+      <div class="gst-charts">
+        <div>
+          <h3 style="text-align:center;">GST Output vs Input</h3>
+          <canvas id="gstBarChart" width="280" height="200"></canvas>
+        </div>
+        <div>
+          <h3 style="text-align:center;">GST Monthly Trend</h3>
+          <canvas id="gstMonthlyChart" width="280" height="200"></canvas>
+        </div>
+        <div>
+          <h3 style="text-align:center;">GST Rate Distribution</h3>
+          <canvas id="gstRatePieChart" width="280" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+  <!-- Ledgers Slide -->
+  <section class="slide ledgers-slide" id="ledgers">
+    <div class="ledger-container">
+      <aside class="ledger-sidebar" id="ledgerSidebar">
+        <!-- Ledger tabs will be injected here -->
+      </aside>
+      <div class="ledger-content" id="ledgerContent">
+        <!-- Ledger details will be injected here -->
+      </div>
+    </div>
+  </section>
+  <!-- Debtors & Creditors Slide -->
+  <section class="slide debcred-slide" id="debcred">
+    <div class="debcred-container">
+      <aside class="debcred-sidebar">
+        <div style="margin-bottom:20px;">
+          <form id="partyForm">
+            <label style="color:#fff;">Create Party</label>
+            <input type="text" id="partyNameInput" placeholder="Enter party name" required>
+            <select id="partyTypeInput" class="party-type-select">
+              <option value="debtor">Debtor</option>
+              <option value="creditor">Creditor</option>
+            </select>
+            <button type="submit">Add Party</button>
+          </form>
+        </div>
+        <div>
+          <h4 style="color:#fff;">Debtors</h4>
+          <div class="party-list" id="partyListDebtor"></div>
+        </div>
+        <div>
+          <h4 style="color:#fff;">Creditors</h4>
+          <div class="party-list" id="partyListCreditor"></div>
+        </div>
+      </aside>
+      <div class="debcred-content">
+        <div class="debcred-card">
+          <h2>Debtors (Party-wise)</h2>
+          <table class="debcred-table" id="debtorsTableTab">
+            <thead>
+              <tr>
+                <th>Party Name</th>
+                <th>Outstanding Amount</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <h2 style="margin-top:32px;">Creditors (Party-wise)</h2>
+          <table class="debcred-table" id="creditorsTableTab">
+            <thead>
+              <tr>
+                <th>Party Name</th>
+                <th>Outstanding Amount</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = function() {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.slide').forEach(slide => slide.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById(this.dataset.slide).classList.add('active');
+        if (this.dataset.slide === "gst") renderGSTSummary();
+        if (this.dataset.slide === "ledgers") renderLedgerSidebar();
+        if (this.dataset.slide === "debcred") {
+          renderDebtorsCreditorsTab();
+          renderPartySidebar();
+        }
+      }
+    });
+
+    // Party management with type
+    let parties = []; // array of {name, type}
+    function addParty(name, type) {
+      name = name.trim();
+      if (!name || !type) return;
+      if (!parties.some(p=>p.name===name && p.type===type)) parties.push({name,type});
+      renderPartySidebar();
+    }
+    function removeParty(name, type) {
+      parties = parties.filter(p => !(p.name===name && p.type===type));
+      renderPartySidebar();
+    }
+    function renderPartySidebar() {
+      const partyListDebtor = document.getElementById('partyListDebtor');
+      const partyListCreditor = document.getElementById('partyListCreditor');
+      const debtors = parties.filter(p=>p.type==="debtor");
+      const creditors = parties.filter(p=>p.type==="creditor");
+      partyListDebtor.innerHTML = debtors.length
+        ? debtors.map(p=>
+          `<div class="party-row"><span>${p.name}</span>
+            <button class="party-del-btn" onclick="removeParty('${p.name.replace(/'/g,"\\'")}','debtor')">Delete</button>
+          </div>`).join('')
+        : '<span style="color:#fff;">No debtors created yet.</span>';
+      partyListCreditor.innerHTML = creditors.length
+        ? creditors.map(p=>
+          `<div class="party-row"><span>${p.name}</span>
+            <button class="party-del-btn" onclick="removeParty('${p.name.replace(/'/g,"\\'")}','creditor')">Delete</button>
+          </div>`).join('')
+        : '<span style="color:#fff;">No creditors created yet.</span>';
+      renderSidebarForm(document.querySelector('.sidebar-tab.active').getAttribute('data-form'));
+    }
+    document.getElementById('partyForm').onsubmit = function(e) {
+      e.preventDefault();
+      const partyName = document.getElementById('partyNameInput').value.trim();
+      const partyType = document.getElementById('partyTypeInput').value;
+      if (partyName && partyType) {
+        addParty(partyName, partyType);
+        document.getElementById('partyNameInput').value = "";
+      }
+    };
+
+    // Sidebar Tabs for Add Transaction
+    const sidebarTabs = [
+      {key:"sales", label:"Sales", type:"income", gst:true, party:"debtor"},
+      {key:"purchase", label:"Purchase", type:"expense", gst:true, party:"creditor"},
+      {key:"debitnote", label:"Debit Note", type:"expense", gst:true},
+      {key:"creditnote", label:"Credit Note", type:"income", gst:true},
+      {key:"payment", label:"Payment", type:"expense", party:"creditor"},
+      {key:"receipt", label:"Receipt", type:"income", party:"debtor"},
+      {key:"contra", label:"Contra", type:"contra"}
+    ];
+
+    function getSidebarFormHTML(tab) {
+      let partyInput = "";
+      if (tab.party) {
+        const partyOptions = parties.filter(p=>p.type===tab.party)
+          .map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+        partyInput = `
+        <div class="form-group">
+          <label>Party Name</label>
+          <select name="party" required>
+            <option value="">Select party</option>
+            ${partyOptions}
+          </select>
+        </div>`;
+      }
+      return `<form id="form_${tab.key}" autocomplete="off" style="margin-top:8px;">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" name="date" required>
+        </div>
+        ${partyInput}
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" name="description" placeholder="Description" required>
+        </div>
+        <div class="form-group">
+          <label>Amount</label>
+          <input type="number" name="amount" placeholder="Amount" required>
+        </div>
+        ${
+          tab.gst ? `<div class="form-group">
+            <label>GST Rate</label>
+            <select name="gstrate">
+              <option value="0">None</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18">18%</option>
+              <option value="28">28%</option>
+            </select>
+          </div>`:''
+        }
+        <button type="submit">Add ${tab.label}</button>
+      </form>`
+    }
+
+    function renderSidebarForm(activeKey) {
+      const tab = sidebarTabs.find(t=>t.key===activeKey) || sidebarTabs[0];
+      document.getElementById('sidebarForms').innerHTML = getSidebarFormHTML(tab);
+      document.querySelectorAll('.sidebar-tab').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.sidebar-tab[data-form="${activeKey}"]`).classList.add('active');
+      document.getElementById(`form_${activeKey}`).onsubmit = function(e) {
+        e.preventDefault();
+        const f = e.target;
+        const date = f.date.value;
+        const party = f.party ? f.party.value : "";
+        const description = f.description.value;
+        const amount = parseFloat(f.amount.value);
+        const gstrate = f.gstrate ? parseInt(f.gstrate.value) : 0;
+        const entry = {
+          date,
+          party,
+          description,
+          amount,
+          gstrate,
+          type: tab.type,
+          trtype: tab.key
+        };
+        transactions.unshift(entry);
+        renderAll();
+        f.reset();
+      }
+    }
+
+    document.querySelectorAll('.sidebar-tab').forEach(btn => {
+      btn.onclick = () => renderSidebarForm(btn.getAttribute('data-form'));
+    });
+    renderSidebarForm("sales");
+
+    let transactions = [];
+    let plChart, bsChart, dashTrendChart, monthlyLineChart, gstBarChart, gstMonthlyChart, gstRatePieChart, debCredBarChart;
+
+    function updateDashboardSummary() {
+      let income=0, expense=0, assets=0, liabilities=0, equity=0;
+      transactions.forEach(tx=>{
+        if (tx.type==="income") income+=tx.amount;
+        if (tx.type==="expense") expense+=tx.amount;
+        if (tx.trtype==="receipt"||tx.trtype==="sales") assets+=tx.amount;
+        if (tx.trtype==="payment"||tx.trtype==="purchase") assets-=tx.amount;
+        if (tx.trtype==="contra") {};
+        if (tx.trtype==="debitnote") liabilities+=tx.amount;
+        if (tx.trtype==="creditnote") equity+=tx.amount;
+      });
+      document.getElementById('dashTotalIncome').textContent = income.toFixed(2);
+      document.getElementById('dashTotalExpense').textContent = expense.toFixed(2);
+      document.getElementById('dashNetProfit').textContent = (income-expense).toFixed(2);
+      document.getElementById('dashAssets').textContent = assets.toFixed(2);
+      document.getElementById('dashLiabilities').textContent = liabilities.toFixed(2);
+      document.getElementById('dashEquity').textContent = equity.toFixed(2);
+      renderPLChart(income, expense, income-expense);
+      renderBSChart(assets, liabilities, equity);
+      renderDebtorsCreditorsSummary();
+    }
+
+    function renderDebtorsCreditorsSummary() {
+      const { debtors, creditors } = getDebtorsCreditors();
+      const debtorSum = Object.values(debtors).reduce((a,b)=>a+b,0);
+      const creditorSum = Object.values(creditors).reduce((a,b)=>a+b,0);
+      document.getElementById('dashboardDebtorSum').textContent = `₹${debtorSum.toFixed(2)}`;
+      document.getElementById('dashboardCreditorSum').textContent = `₹${creditorSum.toFixed(2)}`;
+      renderDebCredBarChart();
+    }
+
+    function renderDebCredBarChart() {
+      const { debtors, creditors } = getDebtorsCreditors();
+      const debtorParties = Object.keys(debtors);
+      const creditorParties = Object.keys(creditors);
+      const allParties = Array.from(new Set([...debtorParties, ...creditorParties]));
+      const debtorAmounts = allParties.map(p => debtors[p] ? debtors[p] : 0);
+      const creditorAmounts = allParties.map(p => creditors[p] ? creditors[p] : 0);
+      if (debCredBarChart) debCredBarChart.destroy();
+      debCredBarChart = new Chart(document.getElementById('debCredBarChart'), {
+        type: 'bar',
+        data: {
+          labels: allParties,
+          datasets: [
+            { label: "Debtors", data: debtorAmounts, backgroundColor: "#007bff" },
+            { label: "Creditors", data: creditorAmounts, backgroundColor: "#fd7e14" }
+          ]
+        },
+        options: {
+          responsive: false,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderPLChart(income, expense, netProfit) {
+      const plData = {
+        labels: ['Income', 'Expense', 'Net Profit'],
+        datasets: [{
+          data: [income, expense, netProfit],
+          backgroundColor: ['#28a745', '#dc3545', '#007bff']
+        }]
+      };
+      if (plChart) plChart.destroy();
+      plChart = new Chart(document.getElementById('plChart'), {
+        type: 'doughnut',
+        data: plData,
+        options: {responsive: false, plugins:{legend:{position:'bottom'}}}
+      });
+    }
+    function renderBSChart(assets, liabilities, equity) {
+      const bsData = {
+        labels: ['Assets', 'Liabilities', 'Equity'],
+        datasets: [{
+          data: [assets, liabilities, equity],
+          backgroundColor: ['#ffc107', '#17a2b8', '#6f42c1']
+        }]
+      };
+      if (bsChart) bsChart.destroy();
+      bsChart = new Chart(document.getElementById('bsChart'), {
+        type: 'pie',
+        data: bsData,
+        options: {responsive: false, plugins:{legend:{position:'bottom'}}}
+      });
+    }
+    function renderDashTrendChart() {
+      const dates = [...new Set(transactions.map(tx => tx.date))].sort();
+      const incomeData = dates.map(date =>
+        transactions.filter(tx=>tx.date===date&&tx.type==='income').reduce((s,tx)=>s+tx.amount,0)
+      );
+      const expenseData = dates.map(date =>
+        transactions.filter(tx=>tx.date===date&&tx.type==='expense').reduce((s,tx)=>s+tx.amount,0)
+      );
+      if (dashTrendChart) dashTrendChart.destroy();
+      dashTrendChart = new Chart(document.getElementById('dashTrendChart'), {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [
+            { label: 'Income', data: incomeData, borderColor: '#28a745', fill: false, tension:0.3 },
+            { label: 'Expense', data: expenseData, borderColor: '#dc3545', fill: false, tension:0.3 }
+          ]
+        },
+        options: {responsive: false, plugins:{legend:{position:'bottom'}}}
+      });
+    }
+    function renderMonthlyLineChart() {
+      const monthlyMap = {};
+      transactions.forEach(tx => {
+        if (!tx.date) return;
+        const month = tx.date.slice(0,7);
+        if (!monthlyMap[month]) monthlyMap[month] = {income:0, expense:0};
+        if (tx.type === 'income') monthlyMap[month].income += tx.amount;
+        if (tx.type === 'expense') monthlyMap[month].expense += tx.amount;
+      });
+      const months = Object.keys(monthlyMap).sort();
+      const incomeArr = months.map(m => monthlyMap[m].income);
+      const expenseArr = months.map(m => monthlyMap[m].expense);
+
+      if (monthlyLineChart) monthlyLineChart.destroy();
+      monthlyLineChart = new Chart(document.getElementById('monthlyLineChart'), {
+        type: 'line',
+        data: {
+          labels: months,
+          datasets: [
+            { label: "Monthly Income", data: incomeArr, borderColor: "#28a745", backgroundColor: "rgba(40,167,69,0.18)", fill: true, tension: 0.3 },
+            { label: "Monthly Expense", data: expenseArr, borderColor: "#dc3545", backgroundColor: "rgba(220,53,69,0.18)", fill: true, tension: 0.3 }
+          ]
+        },
+        options: { responsive: false, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    function getDebtorsCreditors() {
+      const debtors = {};
+      transactions.forEach(tx => {
+        if (tx.trtype === "sales" && tx.party) {
+          if (!debtors[tx.party]) debtors[tx.party] = 0;
+          debtors[tx.party] += tx.amount;
+        }
+        if (tx.trtype === "receipt" && tx.party) {
+          if (!debtors[tx.party]) debtors[tx.party] = 0;
+          debtors[tx.party] -= tx.amount;
+        }
+      });
+      const creditors = {};
+      transactions.forEach(tx => {
+        if (tx.trtype === "purchase" && tx.party) {
+          if (!creditors[tx.party]) creditors[tx.party] = 0;
+          creditors[tx.party] += tx.amount;
+        }
+        if (tx.trtype === "payment" && tx.party) {
+          if (!creditors[tx.party]) creditors[tx.party] = 0;
+          creditors[tx.party] -= tx.amount;
+        }
+      });
+      return { debtors, creditors };
+    }
+
+    function renderDebtorsCreditorsTab() {
+      const { debtors, creditors } = getDebtorsCreditors();
+      const debtorsTableTab = document.getElementById('debtorsTableTab').querySelector('tbody');
+      debtorsTableTab.innerHTML = Object.keys(debtors).map(party =>
+        `<tr><td>${party}</td><td>₹${debtors[party].toFixed(2)}</td></tr>`
+      ).join('');
+      const creditorsTableTab = document.getElementById('creditorsTableTab').querySelector('tbody');
+      creditorsTableTab.innerHTML = Object.keys(creditors).map(party =>
+        `<tr><td>${party}</td><td>₹${creditors[party].toFixed(2)}</td></tr>`
+      ).join('');
+    }
+
+    function renderAddTransTable() {
+      const tbody = document.getElementById('addTransTable').querySelector('tbody');
+      tbody.innerHTML = transactions.slice(0,10).map((tx,i)=>`
+        <tr>
+          <td>${tx.date}</td>
+          <td>${sidebarTabs.find(t=>t.key===tx.trtype).label}</td>
+          <td>${tx.party||'-'}</td>
+          <td>${tx.description}</td>
+          <td>${tx.amount.toFixed(2)}</td>
+          <td>${tx.gstrate?tx.gstrate+"%":"-"}</td>
+          <td>
+            <button class="action-btn" onclick="editTransaction(${i})">Edit</button>
+            <button class="action-btn" onclick="deleteTransaction(${i})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAll() {
+      updateDashboardSummary();
+      renderDashTrendChart();
+      renderMonthlyLineChart();
+      renderDebCredBarChart();
+      renderAddTransTable();
+      renderLedgerSidebar();
+      renderDebtorsCreditorsTab();
+      renderPartySidebar();
+    }
+    renderAll();
+
+    let editIndex = null;
+    function editTransaction(idx){
+      editIndex = idx;
+      const tx = transactions[idx];
+      document.getElementById('editDate').value = tx.date;
+      document.getElementById('editParty').value = tx.party||"";
+      document.getElementById('editDesc').value = tx.description;
+      document.getElementById('editAmount').value = tx.amount;
+      document.getElementById('editGSTRate').value = tx.gstrate||0;
+      document.getElementById('editModal').style.display = "block";
+    }
+    function closeEditModal(){
+      document.getElementById('editModal').style.display = "none";
+      editIndex = null;
+    }
+    document.getElementById('editForm').onsubmit = function(e){
+      e.preventDefault();
+      if(editIndex===null) return;
+      const tx = transactions[editIndex];
+      tx.date = document.getElementById('editDate').value;
+      tx.party = document.getElementById('editParty').value;
+      tx.description = document.getElementById('editDesc').value;
+      tx.amount = parseFloat(document.getElementById('editAmount').value);
+      tx.gstrate = parseInt(document.getElementById('editGSTRate').value)||0;
+      closeEditModal();
+      renderAll();
+    };
+    window.onclick = function(event){
+      if(event.target === document.getElementById('editModal')) closeEditModal();
+    }
+    function deleteTransaction(idx){
+      transactions.splice(idx,1);
+      renderAll();
+    }
+
+    function renderGSTSummary() {
+      let gstOutput = 0, gstInput = 0;
+      let rateDist = {'5':0, '12':0, '18':0, '28':0};
+      let monthlyMap = {};
+
+      transactions.forEach(tx => {
+        if (!tx.gstrate || tx.gstrate === 0) return;
+        const gstamt = tx.amount * tx.gstrate / 100;
+        const month = tx.date ? tx.date.slice(0,7) : '';
+        if (month) {
+          if (!monthlyMap[month]) monthlyMap[month] = {output:0, input:0};
+        }
+        if (tx.trtype === "sales" || tx.trtype === "creditnote") {
+          gstOutput += gstamt;
+          rateDist[String(tx.gstrate)] += gstamt;
+          if (month) monthlyMap[month].output += gstamt;
+        }
+        if (tx.trtype === "purchase" || tx.trtype === "debitnote") {
+          gstInput += gstamt;
+          rateDist[String(tx.gstrate)] += gstamt;
+          if (month) monthlyMap[month].input += gstamt;
+        }
+      });
+      document.getElementById('gstOutput').textContent = "₹"+gstOutput.toFixed(2);
+      document.getElementById('gstInput').textContent = "₹"+gstInput.toFixed(2);
+      document.getElementById('gstNetPayable').textContent = "₹"+(gstOutput-gstInput).toFixed(2);
+
+      if (gstBarChart) gstBarChart.destroy();
+      gstBarChart = new Chart(document.getElementById('gstBarChart'), {
+        type:'bar',
+        data:{
+          labels:['GST Output','GST Input','Net Payable'],
+          datasets:[{
+            label:'GST Summary',
+            data:[gstOutput,gstInput,gstOutput-gstInput],
+            backgroundColor:['#fd7e14','#20c997','#007bff']
+          }]
+        },
+        options:{responsive:false, plugins:{legend:{display:false}}}
+      });
+
+      if (gstRatePieChart) gstRatePieChart.destroy();
+      gstRatePieChart = new Chart(document.getElementById('gstRatePieChart'),{
+        type:'pie',
+        data:{
+          labels:['5%','12%','18%','28%'],
+          datasets:[{
+            data:[rateDist['5'],rateDist['12'],rateDist['18'],rateDist['28']],
+            backgroundColor:['#ffc107','#fd7e14','#007bff','#20c997']
+          }]
+        },
+        options:{responsive:false, plugins:{legend:{position:'bottom'}}}
+      });
+
+      const months = Object.keys(monthlyMap).sort();
+      const outputArr = months.map(m=>monthlyMap[m].output);
+      const inputArr = months.map(m=>monthlyMap[m].input);
+      if (gstMonthlyChart) gstMonthlyChart.destroy();
+      gstMonthlyChart = new Chart(document.getElementById('gstMonthlyChart'),{
+        type:'line',
+        data:{
+          labels:months,
+          datasets:[
+            {label:'GST Output', data:outputArr, borderColor:'#fd7e14', fill:false, tension:0.3},
+            {label:'GST Input', data:inputArr, borderColor:'#20c997', fill:false, tension:0.3}
+          ]
+        },
+        options:{responsive:false, plugins:{legend:{position:'bottom'}}}
+      });
+    }
+
+    function getLedgers() {
+      const ledgers = {};
+      sidebarTabs.forEach(tab => {
+        ledgers[tab.key] = [];
+      });
+      transactions.forEach((tx, idx) => {
+        if (ledgers[tx.trtype]) {
+          ledgers[tx.trtype].push({...tx, idx: idx});
+        }
+      });
+      return ledgers;
+    }
+
+    function renderLedgerSidebar(activeLedger) {
+      const ledgers = getLedgers();
+      const sidebar = document.getElementById('ledgerSidebar');
+      sidebar.innerHTML = '';
+      let first = activeLedger || Object.keys(ledgers)[0];
+      Object.keys(ledgers).forEach(key => {
+        const label = sidebarTabs.find(t=>t.key===key)?.label || key;
+        const btn = document.createElement('button');
+        btn.className = 'ledger-tab' + (key===first ? ' active':'');
+        btn.textContent = label + ` (${ledgers[key].length})`;
+        btn.onclick = () => {
+          document.querySelectorAll('.ledger-tab').forEach(tab=>tab.classList.remove('active'));
+          btn.classList.add('active');
+          renderLedgerContent(key, ledgers[key]);
+        };
+        sidebar.appendChild(btn);
+      });
+      renderLedgerContent(first, ledgers[first]);
+    }
+
+    function renderLedgerContent(ledgerKey, ledgerTxs) {
+      const content = document.getElementById('ledgerContent');
+      const label = sidebarTabs.find(t=>t.key===ledgerKey)?.label || ledgerKey;
+      if (!ledgerTxs.length) {
+        content.innerHTML = `<div class="ledger-title">${label}</div><div>No transactions found.</div>`;
+        return;
+      }
+      content.innerHTML = `
+        <div class="ledger-title">${label} Ledger</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Party</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>GST Rate</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ledgerTxs.map(tx => `
+              <tr>
+                <td>${tx.date}</td>
+                <td>${tx.party||'-'}</td>
+                <td>${tx.description}</td>
+                <td>${tx.amount.toFixed(2)}</td>
+                <td>${tx.gstrate ? tx.gstrate + "%" : "-"}</td>
+                <td>
+                  <button class="action-btn" onclick="editTransaction(${tx.idx})">Edit</button>
+                  <button class="action-btn" onclick="deleteTransaction(${tx.idx})">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  </script>
+</body>
+</html>
